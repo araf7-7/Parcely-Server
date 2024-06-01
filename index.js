@@ -25,8 +25,29 @@ async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
-        const userCollection = client.db("parcelDb").collection("users")
+        const userCollection = client.db("parcelDb").collection("user")
+        const parcelCollection = client.db("parcelDb").collection("parcel")
 
+
+
+        //parcel collection
+        app.post('/parcel', async (req, res) => {
+            const item = req.body
+            const result = await parcelCollection.insertOne(item)
+            res.send(result)
+        })
+        app.get('/parcel', async (req, res) => {
+            const result = await parcelCollection.find().toArray()
+            res.send(result)
+        })
+
+        //user collection
+        // admin pass - Admin@
+        app.post('/users', async (req, res) => {
+            const user = req.body
+            const result = await userCollection.insertOne({ role: "User", ...user })
+            res.send(result)
+        })
         app.put('/users', async (req, res) => {
             const user = req.body
             const isExist = await userCollection.findOne({ email: user?.email })
@@ -47,7 +68,7 @@ async function run() {
         })
         app.get('/users/:email', async (req, res) => {
             const email = req.params.email
-            const result = await userCollection.findOne({email})
+            const result = await userCollection.findOne({ email })
             res.send(result)
         })
         // Send a ping to confirm a successful connection
