@@ -43,6 +43,7 @@ async function run() {
             const result = await parcelCollection.find(query).toArray();
             res.send(result);
         });
+        //update route
         app.get('/parcel/g/:id', async (req, res) => {
             const id = req.params.id;
             if (!isValidObjectId(id)) {
@@ -67,7 +68,7 @@ async function run() {
             const result = await parcelCollection.deleteOne(query);
             res.send(result);
         });
-        
+
         //update api
         app.patch('/parcel/:id', async (req, res) => {
             const parcel = req.body;
@@ -113,6 +114,31 @@ async function run() {
             const result = await userCollection.updateOne(query, updateDoc, options);
             res.send(result);
         });
+        //make delivery man
+        app.patch('/users/deliveryMan/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    role: 'Delivery Man'
+                }
+            }
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
+
+        //make admin 
+        app.patch('/users/admin/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updatedDoc = {
+                $set: {
+                    role: 'Admin'
+                }
+            }
+            const result = await userCollection.updateOne(filter, updatedDoc);
+            res.send(result);
+        })
 
         app.get('/users', async (req, res) => {
             const result = await userCollection.find().toArray();
