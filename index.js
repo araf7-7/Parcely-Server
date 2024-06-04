@@ -97,12 +97,12 @@ async function run() {
         app.post('/users', async (req, res) => {
             const user = req.body;
             const result = await userCollection.insertOne(user);
-            console.log(user);
             res.send(result);
         });
 
         app.put('/users', async (req, res) => {
             const user = req.body;
+            console.log(user);
             const isExist = await userCollection.findOne({ email: user?.email || '' });
             if (isExist) return res.send(isExist);
             const options = { upsert: true };
@@ -110,7 +110,6 @@ async function run() {
             const updateDoc = {
                 $set: { ...user },
             };
-            console.log(user);
             const result = await userCollection.updateOne(query, updateDoc, options);
             res.send(result);
         });
@@ -148,6 +147,12 @@ async function run() {
         app.get('/users/:email', async (req, res) => {
             const email = req.params.email;
             const result = await userCollection.findOne({ email });
+            res.send(result);
+        });
+        //delivery route
+        app.get('/users/u/delivery', async (req, res) => {
+            const result = await userCollection.find({role:'Delivery Man'}).toArray();
+            console.log(result);
             res.send(result);
         });
 
