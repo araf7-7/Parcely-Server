@@ -69,29 +69,81 @@ async function run() {
             res.send(result);
         });
 
+
+        app.put('/parcel/u/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                if (!ObjectId.isValid(id)) {
+                    return res.status(400).json({ success: false, message: "Invalid ID format" });
+                }
+
+                const filter = { _id: new ObjectId(id) };
+                const options = { upsert: true };
+                const addDeliveryMan = req.body;
+
+                const deliveryManUpdate = {
+                    $set: {
+                        ...addDeliveryMan
+                    }
+                };
+
+                const result = await parcelCollection.updateOne(filter, deliveryManUpdate, options);
+
+                if (result.matchedCount === 0 && result.upsertedCount === 0) {
+                    return res.status(404).json({ success: false, message: "Parcel not found" });
+                }
+
+                res.status(200).json({ success: true, message: "Updated successfully" });
+            } catch (error) {
+                console.error(error);
+                res.status(500).json({ success: false, message: "An error occurred", error: error.message });
+            }
+        });
+
+
+
         //update api
         app.patch('/parcel/:id', async (req, res) => {
-            const parcel = req.body;
-            const id = req.params.id;
-            if (!isValidObjectId(id)) {
-                return res.status(400).send({ error: 'Invalid ID format' });
-            }
-            const filter = { _id: new ObjectId(id) };
-            const updateDoc = {
-                $set: {
-                    parcelType: parcel.parcelType,
-                    Weight: parcel.Weight,
-                    receiverName: parcel.receiverName,
-                    receiverNo: parcel.receiverNo,
-                    address: parcel.address,
-                    latitude: parcel.latitude,
-                    longitude: parcel.longitude,
-                    price: parcel.price
+            try {
+                const parcel = req.body;
+                const id = req.params.id;
+
+                if (!isValidObjectId(id)) {
+                    return res.status(400).send({ error: 'Invalid ID format' });
                 }
-            };
-            const result = await parcelCollection.updateOne(filter, updateDoc);
-            res.send(result);
+
+                const existingParcel = await parcelCollection.findOne({ _id: new ObjectId(id) });
+                if (!existingParcel) {
+                    return res.status(404).send({ error: 'Parcel not found' });
+                }
+
+                // Check if the parcel status is "On The Way", if yes, prevent the update
+                if (existingParcel.status === 'On The Way') {
+                    return res.status(403).send({ error: 'Updates are not allowed for parcels that are "On The Way"' });
+                }
+
+                const filter = { _id: new ObjectId(id) };
+                const updateDoc = {
+                    $set: {
+                        parcelType: parcel.parcelType,
+                        Weight: parcel.Weight,
+                        receiverName: parcel.receiverName,
+                        receiverNo: parcel.receiverNo,
+                        address: parcel.address,
+                        latitude: parcel.latitude,
+                        longitude: parcel.longitude,
+                        price: parcel.price
+                    }
+                };
+
+                const result = await parcelCollection.updateOne(filter, updateDoc);
+                res.send(result);
+            } catch (error) {
+                console.error(error);
+                res.status(500).send({ error: 'An error occurred while updating the parcel' });
+            }
         });
+
 
         // User collection
         app.post('/users', async (req, res) => {
@@ -151,7 +203,7 @@ async function run() {
         });
         //delivery route
         app.get('/users/u/delivery', async (req, res) => {
-            const result = await userCollection.find({role:'Delivery Man'}).toArray();
+            const result = await userCollection.find({ role: 'Delivery Man' }).toArray();
             console.log(result);
             res.send(result);
         });
