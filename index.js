@@ -1,6 +1,7 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
+// const jwt = require('jsonwebtoken')
 const port = process.env.PORT || 5000;
 require('dotenv').config();
 
@@ -31,7 +32,29 @@ async function run() {
         const isValidObjectId = (id) => {
             return ObjectId.isValid(id) && (String(new ObjectId(id)) === id);
         };
-
+        //jwt api
+        // app.post('/jwt', async (req, res) => {
+        //     const user = req.body
+        //     const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        //         expiresIn: '1h'
+        //     })
+        //     res.send({ token })
+        // })
+        // //middleware
+        // const verifyToken = (req, res, next) => {
+        //     console.log('inside verify token', req.headers.authorization);
+        //     if (!req.headers.authorization) {
+        //         return res.status(401).send({ message: 'forbidden access' })
+        //     }
+        //     const token = req.headers.authorization.split(' ')[1];
+        //     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        //         if (err) {
+        //             return res.status(401).send({ message: 'forbidden access' })
+        //         }
+        //         req.decoded = decoded
+        //         next();
+        //     })
+        // }
         // Parcel collection
         app.get('/parcel', async (req, res) => {
             const result = await parcelCollection.find().toArray();
@@ -132,18 +155,52 @@ async function run() {
                         address: parcel.address,
                         latitude: parcel.latitude,
                         longitude: parcel.longitude,
-                        price: parcel.price
+                        price: parcel.price,
+                        status: parcel.status
                     }
                 };
 
                 const result = await parcelCollection.updateOne(filter, updateDoc);
-                res.send(result);
+
+                if (result.matchedCount === 0) {
+                    return res.status(404).send({ error: 'Parcel not found' });
+                }
+
+                res.send({ modifiedCount: result.modifiedCount });
             } catch (error) {
                 console.error(error);
                 res.status(500).send({ error: 'An error occurred while updating the parcel' });
             }
         });
+        app.patch('/parcel/gone/:id', async (req, res) => {
+            const item = req.body;
+            const id = req.params.id;
+            if (!isValidObjectId(id)) {
+                return res.status(400).send({ error: 'Invalid ID format' });
+            }
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = {
+                $set: {
+                    ...item
+                }
+            };
+            const result = await parcelCollection.updateOne(filter, updateDoc);
+            res.send(result);
+        });
 
+        app.patch('/parcel/cancel/:id', async (req, res) => {
+            try {
+                const parcel = await parcelCollection.findById(req.params.id);
+                if (!parcel) {
+                    return res.status(404).json({ message: "Parcel not found" });
+                }
+                parcel.status = 'canceled';
+                await parcel.save();
+                res.status(200).json({ message: "Parcel status updated to canceled" });
+            } catch (error) {
+                res.status(500).json({ message: "Internal server error", error });
+            }
+        });
 
         // User collection
         app.post('/users', async (req, res) => {
@@ -154,7 +211,6 @@ async function run() {
 
         app.put('/users', async (req, res) => {
             const user = req.body;
-            console.log(user);
             const isExist = await userCollection.findOne({ email: user?.email || '' });
             if (isExist) return res.send(isExist);
             const options = { upsert: true };
@@ -192,6 +248,7 @@ async function run() {
         })
 
         app.get('/users', async (req, res) => {
+
             const result = await userCollection.find().toArray();
             res.send(result);
         });
@@ -204,10 +261,20 @@ async function run() {
         //delivery route
         app.get('/users/u/delivery', async (req, res) => {
             const result = await userCollection.find({ role: 'Delivery Man' }).toArray();
-            console.log(result);
             res.send(result);
         });
 
+
+        //
+        app.get('/parcel/delivery/:email', async (req, res) => {
+            const user = await userCollection.findOne({ email: req.params.email })
+            if (!user) {
+                return res.send('user not found')
+            }
+            const userId = user._id.toString()
+            const parcels = await parcelCollection.find({ deliveryManId: userId }).toArray()
+            res.send(parcels)
+        })
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
