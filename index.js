@@ -28,6 +28,7 @@ async function run() {
         await client.connect();
         const userCollection = client.db("parcelDb").collection("user");
         const parcelCollection = client.db("parcelDb").collection("parcel");
+        const reviewCollection = client.db("parcelDb").collection("reviews");
 
         // Helper function to validate ObjectId
         const isValidObjectId = (id) => {
@@ -59,7 +60,7 @@ async function run() {
 
         //Payment Intent
         app.post('/create-payment-intent', async (req, res) => {
-            const { price = 0} = req.body;
+            const { price = 0 } = req.body;
 
             // Validate price
             if (price < 0.5) { // Stripe's minimum charge amount for USD is $0.50
@@ -296,6 +297,32 @@ async function run() {
             const parcels = await parcelCollection.find({ deliveryManId: userId }).toArray()
             res.send(parcels)
         })
+        //review
+        app.get('/reviews', async (req, res) => {
+            const result = await reviewCollection.find().toArray();
+            res.send(result);
+        });
+        app.post('/reviews', async (req, res) => {
+            const item = req.body;
+            const result = await reviewCollection.insertOne(item);
+            res.send(result);
+        })
+        app.get('/reviews/deliveryManId/:email', async (req, res) => {
+            try {
+                const email = req.params.email;
+                const deliveryMan = await userCollection.findOne({ email });
+
+                if (!deliveryMan || deliveryMan.role !== 'Delivery Man') {
+                    return res.status(403).json({ message: 'Access Forbidden' });
+                }
+
+                const reviews = await reviewCollection.find({ deliveryMenId: deliveryMan._id.toString() }).toArray();
+                res.json(reviews);
+            } catch (error) {
+                console.error("Error fetching reviews:", error);
+                res.status(500).send("Internal Server Error");
+            }
+        });
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
