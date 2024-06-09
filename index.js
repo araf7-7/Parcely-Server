@@ -1,14 +1,15 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken')
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 const port = process.env.PORT || 5000;
-require('dotenv').config();
+
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.o4dtxo0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -55,6 +56,26 @@ async function run() {
                 next();
             })
         }
+
+        //Payment Intent
+        app.post('/create-payment-intent', async (req, res) => {
+            const { price = 0} = req.body;
+
+            // Validate price
+            if (price < 0.5) { // Stripe's minimum charge amount for USD is $0.50
+                return res.status(400).send({ message: 'Amount must be at least $0.50' });
+            }
+
+            const amount = Math.round(price * 100);
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            });
+        });
         // Parcel collection
         app.get('/parcel', async (req, res) => {
             const result = await parcelCollection.find().toArray();
@@ -66,7 +87,7 @@ async function run() {
             const result = await parcelCollection.find(query).toArray();
             res.send(result);
         });
-        //update route
+
         app.get('/parcel/g/:id', async (req, res) => {
             const id = req.params.id;
             if (!isValidObjectId(id)) {
@@ -126,7 +147,7 @@ async function run() {
 
 
         //update api
-        app.patch('/parcel/:id',verifyToken, async (req, res) => {
+        app.patch('/parcel/:id', verifyToken, async (req, res) => {
             try {
                 const parcel = req.body;
                 const id = req.params.id;
@@ -203,7 +224,7 @@ async function run() {
         });
 
         // User collection
-        app.post('/users',  async (req, res) => {
+        app.post('/users', async (req, res) => {
             const user = req.body;
             const result = await userCollection.insertOne(user);
             res.send(result);
@@ -247,7 +268,7 @@ async function run() {
             res.send(result);
         })
 
-        app.get('/users', verifyToken, async (req, res) => {
+        app.get('/users', async (req, res) => {
 
             const result = await userCollection.find().toArray();
             res.send(result);
@@ -265,7 +286,7 @@ async function run() {
         });
 
 
-        //
+        //delivery man
         app.get('/parcel/delivery/:email', async (req, res) => {
             const user = await userCollection.findOne({ email: req.params.email })
             if (!user) {
