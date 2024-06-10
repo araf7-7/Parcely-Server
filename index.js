@@ -244,7 +244,7 @@ async function run() {
             res.send(result);
         });
         //make delivery man
-        app.patch('/users/deliveryMan/:id', async (req, res) => {
+        app.patch('/users/deliveryMan/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const updatedDoc = {
@@ -257,7 +257,7 @@ async function run() {
         })
 
         //make admin 
-        app.patch('/users/admin/:id', async (req, res) => {
+        app.patch('/users/admin/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const filter = { _id: new ObjectId(id) };
             const updatedDoc = {
